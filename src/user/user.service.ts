@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   HttpException,
   Injectable,
   NotFoundException,
@@ -7,30 +8,86 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import *as bcrypt from "bcrypt"
 
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
+  async create(dto: CreateUserDto) {
+    const { phone, password } = dto;
 
-  async create(createUserDto: CreateUserDto) {
     try {
-      const data = await this.prisma.user.create({
-        data: createUserDto,
+      const existingUser = await this.prisma.user.findUnique({
+        where: { phone },
       });
+
+      if (existingUser) {
+        throw new ConflictException('Foydalanuvchi allaqachon mavjud');
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const data = await this.prisma.user.create({
+        data: {
+          ...dto,
+          password: hashedPassword,
+        },
+      });
+
       return { data };
     } catch (error) {
-      throw new BadRequestException(error.message);
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ConflictException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+      throw new BadRequestException(error.message || 'nimadur xato');
     }
   }
 
-  async findAll() {
-    try {
-      const data = await this.prisma.user.findMany();
-      return { data };
-    } catch (error) {
-      throw new BadRequestException(error.message);
+
+  async findAll(
+  page: number = 1,
+  limit: number = 10,
+  search?: string,
+) {
+  try {
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (search) {
+      where.OR = [
+        { fullname: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
+      ];
     }
+
+    const [users, total] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        skip,
+        take: limit,
+        where,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: users,
+      total,
+      currentPage: page,
+      totalPages,
+    };
+  } catch (error) {
+    throw new BadRequestException(error.message);
   }
+}
+
+
 
   async findOne(id: string) {
     try {

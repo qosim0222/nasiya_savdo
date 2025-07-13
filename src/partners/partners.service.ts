@@ -1,91 +1,120 @@
-import {
-  BadRequestException,
-  HttpException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreatePartnerDto } from './dto/create-partner.dto';
 import { UpdatePartnerDto } from './dto/update-partner.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class PartnersService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createPartnerDto: CreatePartnerDto) {
-    try {
-      const data = await this.prisma.partners.create({
-        data: createPartnerDto,
-      });
-      return { data };
-    } catch (error) {
-      throw new BadRequestException(error.message);
-    }
+  async create(data: CreatePartnerDto, userId: string) {
+    return await this.prisma.partners.create({
+      data: { ...data, balance: 0, userId: userId },
+    });
   }
 
-  async findAll() {
-    try {
-      const data = await this.prisma.partners.findMany();
-      return { data };
-    } catch (error) {
-      throw new BadRequestException(error.message);
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+    search?: string,
+    role?: 'SELLER' | 'CUSTOMER',
+    isActive?: boolean,
+    isArchive?: boolean,
+    sortOrder: 'asc' | 'desc' = 'asc',
+    debtOnly: boolean = false,
+  ) {
+    const skip = (page - 1) * limit;
+    const where: any = {};
+
+    if (search) {
+      where.OR = [
+        { fullname: { contains: search, mode: 'insensitive' } },
+        { address: { contains: search, mode: 'insensitive' } },
+        { phone: { has: search } },
+      ];
     }
+
+    if (role) {
+      where.role = role;
+    }
+
+    if (typeof isActive === 'boolean') {
+      where.isActive = isActive;
+    } else {
+      where.isActive = true; 
+    }
+
+    if (typeof isArchive === 'boolean') {
+      where.isArchive = isArchive;
+    } else {
+      where.isArchive = false; 
+    }
+
+    if (debtOnly) {
+      where.balance = { lt: 0 };
+    }
+
+    const orderBy: any[] = [{ pin: 'desc' }, { createdAt: sortOrder }];
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.partners.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy,
+      }),
+      this.prisma.partners.count({ where }),
+    ]);
+
+    return {
+      data,
+      total,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: string) {
-    try {
-      const data = await this.prisma.partners.findUnique({ where: { id } });
+    const partner = await this.prisma.partners.findUnique({
+      where: { id },
+      include: {
+        updatedBy: { select: { fullname: true } },
+        createdBy: { select: { fullname: true } },
+        
+      },
+    });
 
-      if (!data) {
-        throw new NotFoundException('Partner topilmadi');
-      }
-
-      return { data };
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new BadRequestException(error.message);
+    if (!partner) {
+      throw new NotFoundException('Bunday partner topilmadi');
     }
+    return partner;
   }
 
-  async update(id: string, updatePartnerDto: UpdatePartnerDto) {
-    try {
-      const partner = await this.prisma.partners.findUnique({ where: { id } });
+  async update(id: string, data: UpdatePartnerDto, userId: string) {
+    const partner = await this.prisma.partners.findUnique({
+      where: { id },
+    });
 
-      if (!partner) {
-        throw new NotFoundException('Partner topilmadi');
-      }
-
-      const data = await this.prisma.partners.update({
-        where: { id },
-        data: updatePartnerDto,
-      });
-
-      return { data };
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new BadRequestException(error.message);
+    if (!partner) {
+      throw new NotFoundException('Bunday partner topilmadi');
     }
+
+    return await this.prisma.partners.update({
+      where: { id },
+      data: { ...data, userId },
+    });
   }
 
   async remove(id: string) {
-    try {
-      const partner = await this.prisma.partners.findUnique({ where: { id } });
+    const partner = await this.prisma.partners.findUnique({
+      where: { id },
+    });
 
-      if (!partner) {
-        throw new NotFoundException('Partner topilmadi');
-      }
-
-      const data = await this.prisma.partners.delete({ where: { id } });
-      return { data };
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new BadRequestException(error.message);
+    if (!partner) {
+      throw new NotFoundException('Bunday partner topilmadi');
     }
+    return this.prisma.partners.delete({
+      where: { id },
+    });
   }
 }

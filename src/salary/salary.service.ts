@@ -1,87 +1,118 @@
-import {
-  BadRequestException,
-  HttpException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateSalaryDto } from './dto/create-salary.dto';
 import { UpdateSalaryDto } from './dto/update-salary.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class SalaryService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createSalaryDto: CreateSalaryDto) {
-    try {
-      const data = await this.prisma.salary.create({
-        data: createSalaryDto,
-      });
-      return { data };
-    } catch (error) {
-      throw new BadRequestException(error.message);
-    }
+  async create(data: CreateSalaryDto) {
+    return await this.prisma.salary.create({
+      data,
+    });
   }
 
-  async findAll() {
-    try {
-      const data = await this.prisma.salary.findMany();
-      return { data };
-    } catch (error) {
-      throw new BadRequestException(error.message);
-    }
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+    userId?: string,
+    sort: 'asc' | 'desc' = 'desc',
+  ) {
+    const where = userId ? { userId } : {};
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.salary.findMany({
+        where,
+        orderBy: {
+          createdAt: sort,
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.salary.count({ where }),
+    ]);
+
+    return {
+      data,
+      total,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+  async findMine(
+    userId: string,
+    page: number = 1,
+    limit: number = 10,
+    sort: 'asc' | 'desc' = 'desc',
+  ) {
+    const where = { userId };
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.salary.findMany({
+        where,
+        orderBy: {
+          createdAt: sort,
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.salary.count({ where }),
+    ]);
+
+    return {
+      data,
+      total,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: string) {
-    try {
-      const data = await this.prisma.salary.findUnique({
-        where: { id },
-      });
+    const salary = await this.prisma.salary.findUnique({
+      where: { id },
+    });
 
-      if (!data) {
-        throw new NotFoundException('Salary topilmadi');
-      }
-
-      return { data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      throw new BadRequestException(error.message);
+    if (!salary) {
+      throw new NotFoundException('salary topilmadi');
     }
+
+    return salary;
   }
 
-  async update(id: string, updateSalaryDto: UpdateSalaryDto) {
-    try {
-      const exist = await this.prisma.salary.findUnique({ where: { id } });
+  async update(id: string, data: UpdateSalaryDto) {
+    const salary = await this.prisma.salary.findUnique({
+      where: { id },
+    });
 
-      if (!exist) {
-        throw new NotFoundException('Salary topilmadi');
-      }
-
-      const data = await this.prisma.salary.update({
-        where: { id },
-        data: updateSalaryDto,
-      });
-
-      return { data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      throw new BadRequestException(error.message);
+    if (!salary) {
+      throw new NotFoundException('salary topilmadi');
     }
+
+    const admin = await this.prisma.user.findUnique({
+      where: { id: data.userId },
+    });
+
+    if (!admin) {
+      throw new NotFoundException('admin topilmadi');
+    }
+
+    return this.prisma.salary.update({
+      where: { id },
+      data,
+    });
   }
 
   async remove(id: string) {
-    try {
-      const exist = await this.prisma.salary.findUnique({ where: { id } });
+    const salary = await this.prisma.salary.findUnique({
+      where: { id },
+    });
 
-      if (!exist) {
-        throw new NotFoundException('Salary topilmadi');
-      }
-
-      const data = await this.prisma.salary.delete({ where: { id } });
-      return { data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      throw new BadRequestException(error.message);
+    if (!salary) {
+      throw new NotFoundException('salary topilmadi');
     }
+    return this.prisma.salary.delete({
+      where: { id },
+    });
   }
 }

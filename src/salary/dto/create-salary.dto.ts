@@ -6,7 +6,7 @@ export class CreateSalaryDto {
   @IsString()
   userId: string;
 
-  @ApiProperty({ example: 1200000 })
+  @ApiProperty({ example: 0 })
   @IsNumber()
   amount: number;
 

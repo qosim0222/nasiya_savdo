@@ -1,87 +1,81 @@
 import {
-  BadRequestException,
-  HttpException,
+  ConflictException,
   Injectable,
   NotFoundException,
+  InternalServerErrorException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class CategoryService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createCategoryDto: CreateCategoryDto) {
+  async create(data: CreateCategoryDto) {
     try {
-      const data = await this.prisma.category.create({
-        data: createCategoryDto,
+      const category = await this.prisma.category.findFirst({
+        where: { title: data.title },
       });
-      return { data };
+
+      if (category) {
+        throw new ConflictException('Bunday kategoriya bor');
+      }
+
+      return await this.prisma.category.create({ data });
     } catch (error) {
-      throw new BadRequestException(error.message);
+      throw new InternalServerErrorException(error.message);
     }
   }
 
   async findAll() {
     try {
-      const data = await this.prisma.category.findMany();
-      return { data };
+      return await this.prisma.category.findMany();
     } catch (error) {
-      throw new BadRequestException(error.message);
+      throw new InternalServerErrorException(error.message);
     }
   }
 
   async findOne(id: string) {
     try {
-      const data = await this.prisma.category.findUnique({
-        where: { id },
-      });
-
-      if (!data) {
-        throw new NotFoundException('Category topilmadi');
-      }
-
-      return { data };
+      return await this.checkCategoryExists(id);
     } catch (error) {
-      if (error instanceof HttpException) throw error;
-      throw new BadRequestException(error.message);
+      throw new InternalServerErrorException(error.message);
     }
   }
 
-  async update(id: string, updateCategoryDto: UpdateCategoryDto) {
+  async update(id: string, data: UpdateCategoryDto) {
     try {
-      const exist = await this.prisma.category.findUnique({ where: { id } });
-
-      if (!exist) {
-        throw new NotFoundException('Category topilmadi');
-      }
-
-      const data = await this.prisma.category.update({
+      await this.checkCategoryExists(id);
+      return await this.prisma.category.update({
         where: { id },
-        data: updateCategoryDto,
+        data,
       });
-
-      return { data };
     } catch (error) {
-      if (error instanceof HttpException) throw error;
-      throw new BadRequestException(error.message);
+      throw new InternalServerErrorException(error.message);
     }
   }
 
   async remove(id: string) {
     try {
-      const exist = await this.prisma.category.findUnique({ where: { id } });
-
-      if (!exist) {
-        throw new NotFoundException('Category topilmadi');
-      }
-
-      const data = await this.prisma.category.delete({ where: { id } });
-      return { data };
+      await this.checkCategoryExists(id);
+      return await this.prisma.category.delete({
+        where: { id },
+      });
     } catch (error) {
-      if (error instanceof HttpException) throw error;
-      throw new BadRequestException(error.message);
+      throw new InternalServerErrorException(error.message);
+    }
+  }
+
+  async checkCategoryExists(id: string) {
+    try {
+      const category = await this.prisma.category.findUnique({ where: { id } });
+      if (!category) {
+        throw new NotFoundException('Bunday category yoq');
+      }
+      return category;
+    } catch (error) {
+      throw new InternalServerErrorException(error.message);
     }
   }
 }

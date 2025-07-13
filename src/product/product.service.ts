@@ -1,85 +1,130 @@
 import {
-  BadRequestException,
-  HttpException,
   Injectable,
   NotFoundException,
+  InternalServerErrorException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class ProductService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createProductDto: CreateProductDto) {
+  async create(data: CreateProductDto) {
     try {
-      const data = await this.prisma.product.create({
-        data: createProductDto,
+      let { price, quantity, categoryId } = data;
+
+      const category = await this.prisma.category.findUnique({
+        where: { id: categoryId },
       });
-      return { data };
+
+      if (!category) {
+        throw new NotFoundException('Category topilmadi');
+      }
+
+      price = price || 0;
+      quantity = quantity || 0;
+      const totalPrice = price * quantity;
+
+      return await this.prisma.product.create({
+        data: { ...data, totalPrice },
+      });
     } catch (error) {
-      throw new BadRequestException(error.message);
+      throw new InternalServerErrorException(error.message);
     }
   }
 
-  async findAll() {
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+    categoryId?: string,
+    sortBy: string = 'createdAt',
+    sortOrder: 'asc' | 'desc' = 'desc',
+    name?: string,
+  ) {
     try {
-      const data = await this.prisma.product.findMany();
-      return { data };
+      const skip = (page - 1) * limit;
+      const where: any = {};
+
+      if (categoryId) where.categoryId = categoryId;
+      if (name) where.title = { contains: name, mode: 'insensitive' };
+
+      const [products, total] = await this.prisma.$transaction([
+        this.prisma.product.findMany({
+          skip,
+          take: limit,
+          where,
+          orderBy: {
+            [sortBy]: sortOrder,
+          },
+        }),
+        this.prisma.product.count({ where }),
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: products,
+        total,
+        currentPage: page,
+        totalPages,
+      };
     } catch (error) {
-      throw new BadRequestException(error.message);
+      throw new InternalServerErrorException(error.message);
     }
   }
 
   async findOne(id: string) {
     try {
-      const data = await this.prisma.product.findUnique({ where: { id } });
+      const product = await this.prisma.product.findUnique({
+        where: { id },
+      });
 
-      if (!data) {
-        throw new NotFoundException('Product topilmadi');
+      if (!product) {
+        throw new NotFoundException('Bunday product yoq');
       }
 
-      return { data };
+      return product;
     } catch (error) {
-      if (error instanceof HttpException) throw error;
-      throw new BadRequestException(error.message);
+      throw new InternalServerErrorException(error.message);
     }
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto) {
+  async update(id: string, data: UpdateProductDto) {
     try {
-      const exist = await this.prisma.product.findUnique({ where: { id } });
-
-      if (!exist) {
-        throw new NotFoundException('Product topilmadi');
-      }
-
-      const data = await this.prisma.product.update({
+      const product = await this.prisma.product.findUnique({
         where: { id },
-        data: updateProductDto,
       });
 
-      return { data };
+      if (!product) {
+        throw new NotFoundException("Bunday product yo'q");
+      }
+
+      return await this.prisma.product.update({
+        where: { id },
+        data,
+      });
     } catch (error) {
-      if (error instanceof HttpException) throw error;
-      throw new BadRequestException(error.message);
+      throw new InternalServerErrorException(error.message);
     }
   }
 
   async remove(id: string) {
     try {
-      const exist = await this.prisma.product.findUnique({ where: { id } });
+      const product = await this.prisma.product.findUnique({
+        where: { id },
+      });
 
-      if (!exist) {
-        throw new NotFoundException('Product topilmadi');
+      if (!product) {
+        throw new NotFoundException("Bunday product yo'q");
       }
 
-      const data = await this.prisma.product.delete({ where: { id } });
-      return { data };
+      return await this.prisma.product.delete({
+        where: { id },
+      });
     } catch (error) {
-      if (error instanceof HttpException) throw error;
-      throw new BadRequestException(error.message);
+      throw new InternalServerErrorException(error.message);
     }
   }
 }

@@ -1,42 +1,41 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Units_Type } from '@prisma/client';
-import { IsBoolean, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { UNIT_TYPE } from '@prisma/client';
+import { IsBoolean, IsEnum,  IsNotEmpty,  IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateProductDto {
-  @ApiProperty({ example: 'Shakar 1kg' })
+  @ApiProperty({ example: 'malibu' })
+  @IsNotEmpty()
   @IsString()
   title: string;
 
-  @ApiProperty({ example: 15000 })
-  @IsNumber()
-  sellPrice: number;
-
   @ApiProperty({ example: 12000 })
+  @IsNotEmpty()
   @IsNumber()
-  buyPrice: number;
+  price: number;
 
   @ApiProperty({ example: 100 })
+  @IsNotEmpty()
   @IsNumber()
   quantity: number;
 
-  @ApiProperty({ example: 'clcat123' })
+  @ApiProperty({ example: '14e6b3b2-aea9-437a-81c0-ef69e0dd76af' })
   @IsString()
   categoryId: string;
 
-  @ApiProperty({ example: 'KG', enum: Units_Type })
-  @IsEnum(Units_Type)
-  units: Units_Type;
+  @ApiProperty({ example: 'PIECE', enum: UNIT_TYPE })
+  @IsEnum(UNIT_TYPE)
+  unit: UNIT_TYPE;
 
   @ApiProperty({ example: 'Yangi yetkazildi', required: false })
   @IsOptional()
   @IsString()
   comment?: string;
 
-  @ApiProperty({ example: true })
-  @IsBoolean()
-  isActive: boolean;
 
-  @ApiProperty({ example: 'cluser456' })
+
+  @ApiProperty({ example: '1751273418799.jpg', required: false })
+  @IsOptional()
   @IsString()
-  userId: string;
+  image?:string
+
 }

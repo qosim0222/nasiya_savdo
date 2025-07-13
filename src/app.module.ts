@@ -12,10 +12,22 @@ import { SalaryModule } from './salary/salary.module';
 import { BuyModule } from './buy/buy.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PartnersModule } from './partners/partners.module';
+import { UploadModule } from './upload/upload.module';
+import { AuthModule } from './auth/auth.module';
+import { EskizService } from './eskiz/eskiz.service';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
-  imports: [UserModule,  ProductModule, CategoryModule, ContractModule, ReturnModule, DebtModule, PaymentModule, SalaryModule, BuyModule, PrismaModule, PartnersModule],
+  imports: [ ConfigModule.forRoot({isGlobal:true}),
+     UserModule,  ProductModule, CategoryModule, ContractModule, ReturnModule, DebtModule, PaymentModule, SalaryModule, BuyModule, PrismaModule, PartnersModule, UploadModule, AuthModule,
+    ServeStaticModule.forRoot({
+      rootPath:join(__dirname, '..', "uploads"),
+      serveRoot:'/uploads'
+    })
+  ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, EskizService],
 })
 export class AppModule {}

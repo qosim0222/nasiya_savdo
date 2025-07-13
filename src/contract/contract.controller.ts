@@ -1,20 +1,42 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Request,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { ContractService } from './contract.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
+import { ApiQuery } from '@nestjs/swagger';
+import { AuthGuard } from 'src/guards/auth.guard';
 
 @Controller('contract')
 export class ContractController {
   constructor(private readonly contractService: ContractService) {}
 
+  @UseGuards(AuthGuard)
   @Post()
-  create(@Body() createContractDto: CreateContractDto) {
-    return this.contractService.create(createContractDto);
+  create(@Body() createContractDto: CreateContractDto, @Request() req) {
+    const userId = req.user.id;
+    return this.contractService.create(createContractDto, userId);
   }
 
   @Get()
-  findAll() {
-    return this.contractService.findAll();
+  @ApiQuery({ name: 'page', required: false, type: String})
+  @ApiQuery({ name: 'limit', required: false, type: String })
+  @ApiQuery({ name: 'partnerId', required: false, type: String })
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('partnerId') partnerId?: string,
+  ) {
+    return this.contractService.findAll({ partnerId, page, limit });
   }
 
   @Get(':id')
@@ -23,7 +45,10 @@ export class ContractController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateContractDto: UpdateContractDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateContractDto: UpdateContractDto,
+  ) {
     return this.contractService.update(id, updateContractDto);
   }
 

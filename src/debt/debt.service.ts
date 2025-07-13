@@ -1,87 +1,61 @@
-import {
-  BadRequestException,
-  HttpException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateDebtDto } from './dto/create-debt.dto';
-import { UpdateDebtDto } from './dto/update-debt.dto';
+
+interface FindAllParams {
+  partnerId?: string;
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  order?: 'asc' | 'desc';
+}
 
 @Injectable()
 export class DebtService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createDebtDto: CreateDebtDto) {
-    try {
-      const data = await this.prisma.debt.create({
-        data: createDebtDto,
-      });
-      return { data };
-    } catch (error) {
-      throw new BadRequestException(error.message);
-    }
-  }
+async findAll(params: FindAllParams) {
+  const {
+    partnerId,
+    page = 1,
+    limit = 10,
+    sortBy = 'createdAt',
+    order = 'desc',
+  } = params;
 
-  async findAll() {
-    try {
-      const data = await this.prisma.debt.findMany();
-      return { data };
-    } catch (error) {
-      throw new BadRequestException(error.message);
-    }
-  }
+  const where = partnerId ? { partnerId } : {};
+
+  const debts = await this.prisma.debt.findMany({
+    where,
+    orderBy: {
+      createdAt: order,
+    },
+    include:{
+      partner: {select:{fullname:true,phone:true}},
+    },
+    skip: (page - 1) * limit,
+    take: limit,
+  });
+
+  const total = await this.prisma.debt.count({ where });
+
+  return {
+    data: debts,
+    total,
+    currentPage: page,
+    totalPages: Math.ceil(total / limit),
+  };
+}
+
 
   async findOne(id: string) {
-    try {
-      const data = await this.prisma.debt.findUnique({
-        where: { id },
-      });
-
-      if (!data) {
-        throw new NotFoundException('Debt topilmadi');
-      }
-
-      return { data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      throw new BadRequestException(error.message);
-    }
-  }
-
-  async update(id: string, updateDebtDto: UpdateDebtDto) {
-    try {
-      const exist = await this.prisma.debt.findUnique({ where: { id } });
-
-      if (!exist) {
-        throw new NotFoundException('Debt topilmadi');
-      }
-
-      const data = await this.prisma.debt.update({
-        where: { id },
-        data: updateDebtDto,
-      });
-
-      return { data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      throw new BadRequestException(error.message);
-    }
+    const debt = await this.prisma.debt.findUnique({ where: { id } });
+    if (!debt) throw new NotFoundException('Debt topilmadi');
+    return debt;
   }
 
   async remove(id: string) {
-    try {
-      const exist = await this.prisma.debt.findUnique({ where: { id } });
-
-      if (!exist) {
-        throw new NotFoundException('Debt topilmadi');
-      }
-
-      const data = await this.prisma.debt.delete({ where: { id } });
-      return { data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      throw new BadRequestException(error.message);
-    }
+    const debt = await this.prisma.debt.findUnique({ where: { id } });
+    if (!debt) throw new NotFoundException('Debt topilmadi');
+    return this.prisma.debt.delete({ where: { id } });
   }
 }

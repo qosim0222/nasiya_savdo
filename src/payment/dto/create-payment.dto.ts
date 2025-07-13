@@ -1,9 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Payment_Type, Type } from '@prisma/client';
+import { PAYMENT_TYPE, TYPE } from '@prisma/client';
 import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreatePaymentDto {
-  @ApiProperty({ example: 'clpartner789' })
+  @ApiProperty({ example: 'asass121sa1sas2a' })
   @IsString()
   partnerId: string;
 
@@ -11,9 +11,6 @@ export class CreatePaymentDto {
   @IsString()
   debtId: string;
 
-  @ApiProperty({ example: 'cluser456' })
-  @IsString()
-  userId: string;
 
   @ApiProperty({ example: 250000 })
   @IsNumber()
@@ -24,11 +21,11 @@ export class CreatePaymentDto {
   @IsString()
   comment?: string;
 
-  @ApiProperty({ example: 'CASH', enum: Payment_Type })
-  @IsEnum(Payment_Type)
-  paymentType: Payment_Type;
+  @ApiProperty({ example: 'CASH', enum: PAYMENT_TYPE })
+  @IsEnum(PAYMENT_TYPE)
+  paymentType: PAYMENT_TYPE;
 
-  @ApiProperty({ example: 'IN', enum: Type })
-  @IsEnum(Type)
-  type: Type;
+  @ApiProperty({ example: 'IN', enum: TYPE })
+  @IsEnum(TYPE)
+  type: TYPE;
 }

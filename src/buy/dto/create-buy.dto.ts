@@ -1,5 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+import { UNIT_TYPE } from "@prisma/client";
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID } from "class-validator";
 
 export class CreateBuyDto {
     @ApiProperty({ example: "clx0def456uvw789", description: "Hamkor (partner) IDsi" })
@@ -27,9 +28,18 @@ export class CreateBuyDto {
     @IsString()
     comment?: string;
 
-    
-    @ApiProperty({ example: "121212545454"})
+    @ApiProperty({ example: 'd58efbe4-3b7f-4f10-b07e-2c362e8d9dd3' })
+    @IsUUID()
+    @IsString()
+    categoryId: string;
+
+    @ApiProperty({ example: 'PIECE', enum: UNIT_TYPE })
+    @IsEnum(UNIT_TYPE)
+    unit: UNIT_TYPE;
+
+    @ApiProperty({ example: 'telefon' })
     @IsNotEmpty()
     @IsString()
-    userId: string;
+    title: string;
 }
+
